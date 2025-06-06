@@ -1,0 +1,187 @@
+// Pizza Clicker Game (versão avançada com visuais aprimorados)
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
+
+export default function PizzaClicker() {
+  const [pizzas, setPizzas] = useState(0);
+  const [autoClickers, setAutoClickers] = useState(0);
+  const [pizzaOvens, setPizzaOvens] = useState(0);
+  const [autoClickerCost, setAutoClickerCost] = useState(20);
+  const [pizzaOvenCost, setPizzaOvenCost] = useState(100);
+  const [achievements, setAchievements] = useState([]);
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const [level, setLevel] = useState(1);
+  const [prestige, setPrestige] = useState(0);
+  const bgm = useRef(null);
+
+  useEffect(() => {
+    if (!bgm.current) bgm.current = new Audio("/sounds/music.mp3");
+    bgm.current.loop = true;
+    bgm.current.volume = 0.1;
+    musicPlaying ? bgm.current.play() : bgm.current.pause();
+    return () => bgm.current.pause();
+  }, [musicPlaying]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("pizza-clicker");
+    if (saved) {
+      const data = JSON.parse(saved);
+      setPizzas(data.pizzas);
+      setAutoClickers(data.autoClickers);
+      setPizzaOvens(data.pizzaOvens);
+      setAutoClickerCost(data.autoClickerCost);
+      setPizzaOvenCost(data.pizzaOvenCost);
+      setAchievements(data.achievements || []);
+      setLevel(data.level || 1);
+      setPrestige(data.prestige || 0);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("pizza-clicker", JSON.stringify({
+      pizzas, autoClickers, pizzaOvens, autoClickerCost, pizzaOvenCost, achievements, level, prestige
+    }));
+  }, [pizzas, autoClickers, pizzaOvens, autoClickerCost, pizzaOvenCost, achievements, level, prestige]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const income = (autoClickers + pizzaOvens * 5) * (1 + prestige * 0.2);
+      setPizzas(prev => prev + income);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [autoClickers, pizzaOvens, prestige]);
+
+  useEffect(() => {
+    const newLevel = Math.floor(Math.log10(pizzas + 1)) + 1;
+    if (newLevel !== level) setLevel(newLevel);
+  }, [pizzas]);
+
+  const playSound = (src) => {
+    const audio = new Audio(src);
+    audio.volume = 0.2;
+    audio.play();
+  };
+
+  const handleClick = () => {
+    setPizzas(pizzas + 1);
+    playSound("/sounds/pop.mp3");
+  };
+
+  const buyAutoClicker = () => {
+    if (pizzas >= autoClickerCost) {
+      setPizzas(pizzas - autoClickerCost);
+      setAutoClickers(autoClickers + 1);
+      setAutoClickerCost(Math.floor(autoClickerCost * 1.5));
+      playSound("/sounds/buy.mp3");
+    }
+  };
+
+  const buyPizzaOven = () => {
+    if (pizzas >= pizzaOvenCost) {
+      setPizzas(pizzas - pizzaOvenCost);
+      setPizzaOvens(pizzaOvens + 1);
+      setPizzaOvenCost(Math.floor(pizzaOvenCost * 1.6));
+      playSound("/sounds/buy.mp3");
+    }
+  };
+
+  const handlePrestige = () => {
+    if (pizzas >= 10000) {
+      if (confirm("Você tem certeza que deseja reiniciar com prestígio? Isso apagará todo o progresso atual.")) {
+        setPizzas(0);
+        setAutoClickers(0);
+        setPizzaOvens(0);
+        setAutoClickerCost(20);
+        setPizzaOvenCost(100);
+        setAchievements([]);
+        setLevel(1);
+        setPrestige(prestige + 1);
+        playSound("/sounds/achievement.mp3");
+      }
+    }
+  };
+
+  useEffect(() => {
+    const unlocked = [];
+    if (pizzas >= 100 && !achievements.includes("🍕 100 Pizzas!")) unlocked.push("🍕 100 Pizzas!");
+    if (autoClickers >= 10 && !achievements.includes("🤖 10 Robôs!")) unlocked.push("🤖 10 Robôs!");
+    if (pizzaOvens >= 5 && !achievements.includes("🔥 5 Fornos!")) unlocked.push("🔥 5 Fornos!");
+    if (pizzas >= 1000 && !achievements.includes("🏆 Mestre Pizzaiolo!")) unlocked.push("🏆 Mestre Pizzaiolo!");
+    if (prestige >= 1 && !achievements.includes("💫 1 Prestígio!")) unlocked.push("💫 1 Prestígio!");
+    if (unlocked.length > 0) {
+      setAchievements([...achievements, ...unlocked]);
+      playSound("/sounds/achievement.mp3");
+    }
+  }, [pizzas, autoClickers, pizzaOvens, prestige]);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-orange-100 to-yellow-200 p-4">
+      <motion.h1 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1 }}
+        className="text-5xl font-extrabold mb-2 text-red-700 drop-shadow animate-pulse">
+        🍕 Pizza Clicker
+      </motion.h1>
+
+      <p className="text-md text-gray-700 mb-4">Nível: {level} | Prestígio: {prestige}</p>
+
+      <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
+        <Card className="mb-4 w-full max-w-sm text-center shadow-xl bg-white/80">
+          <CardContent>
+            <p className="text-3xl font-bold">Pizzas: {Math.floor(pizzas)}</p>
+            <p className="text-sm text-gray-600">🤖 Robôs de Pizza: {autoClickers}</p>
+            <p className="text-sm text-gray-600">🔥 Fornos: {pizzaOvens}</p>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div whileTap={{ scale: 0.9 }}>
+        <Button onClick={handleClick} className="text-xl py-6 px-10 mb-4 bg-gradient-to-r from-yellow-400 to-red-400 hover:from-yellow-500 hover:to-red-500 text-white rounded-full shadow-xl">
+          🍕 Fazer Pizza
+        </Button>
+      </motion.div>
+
+      <Card className="w-full max-w-sm mb-4 shadow bg-white/90">
+        <CardContent className="space-y-4">
+          <h2 className="text-xl font-semibold text-red-700">⚙️ Upgrades</h2>
+          <Button onClick={buyAutoClicker} disabled={pizzas < autoClickerCost} className="w-full bg-blue-200 hover:bg-blue-300">
+            Comprar Robô de Pizza ({autoClickerCost} pizzas)
+          </Button>
+          <Button onClick={buyPizzaOven} disabled={pizzas < pizzaOvenCost} className="w-full bg-orange-200 hover:bg-orange-300">
+            Comprar Forno de Pizza ({pizzaOvenCost} pizzas)
+          </Button>
+        </CardContent>
+      </Card>
+
+      {achievements.length > 0 && (
+        <Card className="w-full max-w-sm shadow bg-white/90">
+          <CardContent>
+            <h2 className="text-lg font-bold mb-2 text-green-700">🏆 Conquistas</h2>
+            <ul className="list-disc list-inside text-sm text-gray-700">
+              {achievements.map((ach, index) => (
+                <li key={index}>{ach}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex space-x-4 mt-6">
+        <Button
+          onClick={() => setMusicPlaying(!musicPlaying)}
+          className="bg-blue-400 hover:bg-blue-500 text-white px-4 py-2 rounded shadow"
+        >
+          {musicPlaying ? "🔇 Parar Música" : "🎵 Tocar Música"}
+        </Button>
+
+        <Button
+          onClick={handlePrestige}
+          disabled={pizzas < 10000}
+          className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded shadow"
+        >
+          💫 Reiniciar com Prestígio (10000+ Pizzas)
+        </Button>
+      </div>
+    </div>
+  );
+}
